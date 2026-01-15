@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/mirkobrombin/go-foundation/pkg/tags"
 )
 
 type Config struct {
@@ -19,24 +21,28 @@ type TimeoutRule struct {
 	Duration  time.Duration
 }
 
+var tagParser = tags.NewParser("fsm")
+
 func Parse(tag string) (*Config, error) {
 	cfg := &Config{
 		Transitions: make(map[string][]string),
 		Timeouts:    make(map[string]TimeoutRule),
 	}
 
-	for part := range strings.SplitSeq(tag, ";") {
-		part = strings.TrimSpace(part)
-		if part == "" {
+	parsed := tagParser.Parse(tag)
+
+	if initial, ok := parsed["initial"]; ok && len(initial) > 0 {
+		cfg.InitialState = initial[0]
+	}
+
+	for key := range parsed {
+		if key == "initial" {
 			continue
 		}
 
-		if strings.HasPrefix(part, "initial:") {
-			cfg.InitialState = strings.TrimPrefix(part, "initial:")
-			continue
-		}
-
+		part := key
 		var timeoutDuration time.Duration
+
 		if startBracket := strings.Index(part, "["); startBracket != -1 {
 			endBracket := strings.Index(part, "]")
 			if endBracket > startBracket {
@@ -52,7 +58,7 @@ func Parse(tag string) (*Config, error) {
 
 		before, after, ok := strings.Cut(part, "->")
 		if !ok {
-			return nil, fmt.Errorf("invalid transition syntax: %s", part)
+			continue
 		}
 
 		src := strings.TrimSpace(before)
@@ -72,5 +78,6 @@ func Parse(tag string) (*Config, error) {
 			}
 		}
 	}
+
 	return cfg, nil
 }
