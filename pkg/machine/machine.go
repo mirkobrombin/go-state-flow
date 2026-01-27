@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/mirkobrombin/go-foundation/pkg/tags"
 	"github.com/mirkobrombin/go-state-flow/pkg/parser"
 	"github.com/mirkobrombin/go-state-flow/pkg/visualizer"
 )
@@ -43,45 +44,44 @@ func New(obj any) (*Machine, error) {
 	}
 
 	elem := val.Elem()
-	typ := elem.Type()
 
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if tag, ok := field.Tag.Lookup("fsm"); ok {
-			if field.Type.Kind() != reflect.String {
-				return nil, fmt.Errorf("field '%s' must be a string", field.Name)
-			}
+	// Optimization: Use cached tags parser
+	fields := tags.NewParser("fsm").ParseStruct(obj)
 
-			cfg, err := parser.Parse(tag)
-			if err != nil {
-				return nil, err
-			}
-
-			m := &Machine{
-				obj:          obj,
-				val:          elem,
-				stateField:   elem.Field(i),
-				stateType:    field,
-				transitions:  cfg.Transitions,
-				wildcards:    cfg.Wildcards,
-				initialState: cfg.InitialState,
-				timeouts:     cfg.Timeouts,
-				hooks:        make(map[string]stateHooks),
-				history:      make([]TransitionRecord, 0),
-				listeners:    make([]Listener, 0),
-			}
-
-			m.initHooks()
-
-			current := m.stateField.String()
-			if current == "" && m.initialState != "" {
-				m.stateField.SetString(m.initialState)
-				current = m.initialState
-			}
-			m.lastStateTime = time.Now()
-
-			return m, nil
+	for _, meta := range fields {
+		if meta.Type.Kind() != reflect.String {
+			return nil, fmt.Errorf("field '%s' must be a string", meta.Name)
 		}
+
+		cfg, err := parser.Parse(meta.RawTag)
+		if err != nil {
+			return nil, err
+		}
+
+		m := &Machine{
+			obj:          obj,
+			val:          elem,
+			stateField:   elem.Field(meta.Index),
+			stateType:    elem.Type().Field(meta.Index),
+			transitions:  cfg.Transitions,
+			wildcards:    cfg.Wildcards,
+			initialState: cfg.InitialState,
+			timeouts:     cfg.Timeouts,
+			hooks:        make(map[string]stateHooks),
+			history:      make([]TransitionRecord, 0),
+			listeners:    make([]Listener, 0),
+		}
+
+		m.initHooks()
+
+		current := m.stateField.String()
+		if current == "" && m.initialState != "" {
+			m.stateField.SetString(m.initialState)
+			current = m.initialState
+		}
+		m.lastStateTime = time.Now()
+
+		return m, nil
 	}
 
 	return nil, errors.New("no field with 'fsm' tag found")
