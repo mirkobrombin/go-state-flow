@@ -1,5 +1,8 @@
 # Go State Flow
 
+> [!CAUTION]
+> go-state-flow is now part of the [go-foundation](https://github.com/mirkobrombin/go-foundation) framework. The v1.0.0 release mirrors go-state-flow v0.1.0, but future versions may introduce breaking changes. Please migrate your project.
+
 **Go State Flow** is a high-performance, declarative Finite State Machine (FSM) library for Go.
 
 It solves the problem of "Spaghetti State Management" by allowing you to define valid states and transitions directly on your data structs using tags, rather than burying logic in `switch` statements or imperative code.
